@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag ou branch do llama.cpp (ex: master ou b4000)"
+        description: "Tag ou branch do llama.cpp (ex: b5000 ou master)"
         required: true
-        default: "master"
+        default: "b5000"
 
 jobs:
   build:
@@ -22,6 +22,22 @@ jobs:
 
       - name: Clonar llama.cpp
         run: git clone --depth 1 --branch "${{ inputs.ref }}" https://github.com/ggml-org/llama.cpp src
+
+      - name: Remendo CreateFile2 (so afeta versoes novas)
+        run: |
+          cd src
+          python3 - <<'EOF'
+          import re, os
+          pat = r"::CreateFile2\(([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\)"
+          rep = r"::CreateFileW(\1, \2, \3, NULL, \4, FILE_ATTRIBUTE_NORMAL, NULL)"
+          for f in ("vendor/cpp-httplib/httplib.cpp", "vendor/cpp-httplib/httplib.h"):
+              if not os.path.exists(f):
+                  continue
+              s = open(f, encoding="utf-8").read()
+              n = re.sub(pat, rep, s)
+              open(f, "w", encoding="utf-8").write(n)
+              print(f, "CreateFile2 restantes:", n.count("CreateFile2"))
+          EOF
 
       - name: Configurar
         run: |
@@ -41,7 +57,7 @@ jobs:
       - name: Compilar
         run: |
           cd src
-          cmake --build build -j4 --target llama-cli llama-bench
+          cmake --build build -j4 --target llama-cli llama-bench -- -k 0
           ls -la build/bin
 
       - uses: actions/upload-artifact@v4
