@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Tag ou branch do llama.cpp (ex: b5000 ou master)"
+        description: "Tag ou branch do llama.cpp (ex: b4753 ou master)"
         required: true
-        default: "b5000"
+        default: "b4753"
 
 jobs:
   build:
@@ -21,7 +21,15 @@ jobs:
           echo "$PWD/llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: Clonar llama.cpp
-        run: git clone --depth 1 --branch "${{ inputs.ref }}" https://github.com/ggml-org/llama.cpp src
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          URL=https://github.com/ggml-org/llama.cpp
+          git clone --depth 1 --branch "$REF" "$URL" src || {
+            echo "Tag inexistente. Tags parecidas:"
+            git ls-remote --tags --refs "$URL" "refs/tags/$(echo "$REF" | cut -c1-4)*" | sed 's|.*refs/tags/||'
+            exit 1
+          }
 
       - name: Remendo CreateFile2 (so afeta versoes novas)
         run: |
@@ -51,8 +59,9 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="-static" \
             -DGGML_NATIVE=OFF -DGGML_AVX=OFF -DGGML_AVX2=OFF -DGGML_AVX512=OFF \
             -DGGML_FMA=OFF -DGGML_F16C=OFF -DGGML_BMI2=OFF -DGGML_SSE42=OFF \
-            -DGGML_OPENMP=OFF -DGGML_WIN_VER=0x601 \
-            -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF
+            -DGGML_OPENMP=OFF -DGGML_WIN_VER=0x601 -DLLAMA_WIN_VER=0x601 \
+            -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF
 
       - name: Compilar
         run: |
