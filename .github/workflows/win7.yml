@@ -10,20 +10,15 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
+    runs-on: ubuntu-latest
     steps:
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW32
-          update: true
-          install: >-
-            git
-            mingw-w64-i686-gcc
-            mingw-w64-i686-cmake
-            mingw-w64-i686-ninja
+      - name: Instalar toolchain llvm-mingw (msvcrt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          wget -nv https://github.com/mstorsjo/llvm-mingw/releases/download/20250114/llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64.tar.xz
+          echo "$PWD/llvm-mingw-20250114-msvcrt-ubuntu-20.04-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: Clonar llama.cpp
         run: git clone --depth 1 --branch "${{ inputs.ref }}" https://github.com/ggml-org/llama.cpp src
@@ -32,12 +27,16 @@ jobs:
         run: |
           cd src
           cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86 \
+            -DCMAKE_C_COMPILER=i686-w64-mingw32-clang \
+            -DCMAKE_CXX_COMPILER=i686-w64-mingw32-clang++ \
+            -DCMAKE_RC_COMPILER=i686-w64-mingw32-windres \
+            -DCMAKE_C_FLAGS="-march=bonnell" -DCMAKE_CXX_FLAGS="-march=bonnell" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static" \
             -DGGML_NATIVE=OFF -DGGML_AVX=OFF -DGGML_AVX2=OFF -DGGML_AVX512=OFF \
             -DGGML_FMA=OFF -DGGML_F16C=OFF -DGGML_BMI2=OFF -DGGML_SSE42=OFF \
             -DGGML_OPENMP=OFF -DGGML_WIN_VER=0x601 \
-            -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_C_FLAGS="-mssse3" -DCMAKE_CXX_FLAGS="-mssse3" \
-            -DCMAKE_EXE_LINKER_FLAGS="-static"
+            -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF
 
       - name: Compilar
         run: |
